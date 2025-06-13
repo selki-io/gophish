@@ -106,9 +106,16 @@ func (g *Group) Validate() error {
 }
 
 // GetGroups returns the groups owned by the given user.
-func GetGroups(uid int64) ([]Group, error) {
+func GetGroups(uid int64, groupIds ...int64) ([]Group, error) {
 	gs := []Group{}
-	err := db.Where("user_id=?", uid).Find(&gs).Error
+	query := db.Where("user_id=?", uid)
+	
+	// If group IDs are provided, filter by them
+	if len(groupIds) > 0 {
+		query = query.Where("id IN (?)", groupIds)
+	}
+	
+	err := query.Find(&gs).Error
 	if err != nil {
 		log.Error(err)
 		return gs, err

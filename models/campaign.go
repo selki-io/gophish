@@ -302,11 +302,19 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 }
 
 // GetCampaigns returns the campaigns owned by the given user.
-func GetCampaigns(uid int64) ([]Campaign, error) {
+func GetCampaigns(uid int64, campaignIds ...int64) ([]Campaign, error) {
 	cs := []Campaign{}
-	err := db.Model(&User{Id: uid}).Related(&cs).Error
+	query := db.Where("user_id = ?", uid)
+	
+	// If campaign IDs are provided, filter by them
+	if len(campaignIds) > 0 {
+		query = query.Where("id IN (?)", campaignIds)
+	}
+	
+	err := query.Find(&cs).Error
 	if err != nil {
 		log.Error(err)
+		return cs, err
 	}
 	for i := range cs {
 		err = cs[i].getDetails()

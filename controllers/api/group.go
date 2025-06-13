@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	ctx "github.com/gophish/gophish/context"
@@ -18,7 +19,18 @@ import (
 func (as *Server) Groups(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == "GET":
-		gs, err := models.GetGroups(ctx.Get(r, "user_id").(int64))
+		// Parse group IDs from query parameter
+		var groupIds []int64
+		if ids := r.URL.Query().Get("id__in"); ids != "" {
+			for _, idStr := range strings.Split(ids, ",") {
+				if id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 64); err == nil {
+					groupIds = append(groupIds, id)
+				}
+			}
+		}
+		
+		// Get groups with optional ID filter
+		gs, err := models.GetGroups(ctx.Get(r, "user_id").(int64), groupIds...)
 		if err != nil {
 			JSONResponse(w, models.Response{Success: false, Message: "No groups found"}, http.StatusNotFound)
 			return

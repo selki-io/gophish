@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	ctx "github.com/gophish/gophish/context"
 	log "github.com/gophish/gophish/logger"
@@ -17,9 +18,23 @@ import (
 func (as *Server) Campaigns(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == "GET":
-		cs, err := models.GetCampaigns(ctx.Get(r, "user_id").(int64))
+		// Parse campaign IDs from query parameter
+		var campaignIds []int64
+		if ids := r.URL.Query().Get("id__in"); ids != "" {
+			for _, idStr := range strings.Split(ids, ",") {
+				if id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 64); err == nil {
+					campaignIds = append(campaignIds, id)
+				}
+			}
+		}
+		log.Debugf("campaignIds: %v", campaignIds)
+		
+		// Get campaigns with optional ID filter
+		cs, err := models.GetCampaigns(ctx.Get(r, "user_id").(int64), campaignIds...)
 		if err != nil {
 			log.Error(err)
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+			return
 		}
 		JSONResponse(w, cs, http.StatusOK)
 	//POST: Create a new campaign and return it as JSON
