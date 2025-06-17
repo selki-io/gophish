@@ -91,7 +91,7 @@ func (p *Page) Validate() error {
 // GetPages returns the pages owned by the given user.
 func GetPages(uid int64) ([]Page, error) {
 	ps := []Page{}
-	err := db.Where("user_id=?", uid).Find(&ps).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?))", uid, DefaultAdminUsername).Find(&ps).Error
 	if err != nil {
 		log.Error(err)
 		return ps, err
@@ -102,7 +102,7 @@ func GetPages(uid int64) ([]Page, error) {
 // GetPage returns the page, if it exists, specified by the given id and user_id.
 func GetPage(id int64, uid int64) (Page, error) {
 	p := Page{}
-	err := db.Where("user_id=? and id=?", uid, id).Find(&p).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?)) and id=?", uid, DefaultAdminUsername, id).Find(&p).Error
 	if err != nil {
 		log.Error(err)
 	}
@@ -112,7 +112,7 @@ func GetPage(id int64, uid int64) (Page, error) {
 // GetPageByName returns the page, if it exists, specified by the given name and user_id.
 func GetPageByName(n string, uid int64) (Page, error) {
 	p := Page{}
-	err := db.Where("user_id=? and name=?", uid, n).Find(&p).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?)) and name=?", uid, DefaultAdminUsername, n).Find(&p).Error
 	if err != nil {
 		log.Error(err)
 	}

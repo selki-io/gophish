@@ -27,7 +27,7 @@ var conf *config.Config
 const MaxDatabaseConnectionAttempts int = 10
 
 // DefaultAdminUsername is the default username for the administrative user
-const DefaultAdminUsername = "admin"
+const DefaultAdminUsername = "System (Global)"
 
 // InitialAdminPassword is the environment variable that specifies which
 // password to use for the initial root login instead of generating one

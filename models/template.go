@@ -59,7 +59,7 @@ func (t *Template) Validate() error {
 // GetTemplates returns the templates owned by the given user.
 func GetTemplates(uid int64) ([]Template, error) {
 	ts := []Template{}
-	err := db.Where("user_id=?", uid).Find(&ts).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?))", uid, DefaultAdminUsername).Find(&ts).Error
 	if err != nil {
 		log.Error(err)
 		return ts, err
@@ -81,7 +81,7 @@ func GetTemplates(uid int64) ([]Template, error) {
 // GetTemplate returns the template, if it exists, specified by the given id and user_id.
 func GetTemplate(id int64, uid int64) (Template, error) {
 	t := Template{}
-	err := db.Where("user_id=? and id=?", uid, id).Find(&t).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?)) AND id=?", uid, DefaultAdminUsername, id).First(&t).Error
 	if err != nil {
 		log.Error(err)
 		return t, err
@@ -102,7 +102,7 @@ func GetTemplate(id int64, uid int64) (Template, error) {
 // GetTemplateByName returns the template, if it exists, specified by the given name and user_id.
 func GetTemplateByName(n string, uid int64) (Template, error) {
 	t := Template{}
-	err := db.Where("user_id=? and name=?", uid, n).Find(&t).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?)) AND name=?", uid, DefaultAdminUsername, n).Find(&t).Error
 	if err != nil {
 		log.Error(err)
 		return t, err

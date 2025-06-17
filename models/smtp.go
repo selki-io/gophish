@@ -141,7 +141,7 @@ func (s *SMTP) GetDialer() (mailer.Dialer, error) {
 // GetSMTPs returns the SMTPs owned by the given user.
 func GetSMTPs(uid int64) ([]SMTP, error) {
 	ss := []SMTP{}
-	err := db.Where("user_id=?", uid).Find(&ss).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?))", uid, DefaultAdminUsername).Find(&ss).Error
 	if err != nil {
 		log.Error(err)
 		return ss, err
@@ -159,7 +159,7 @@ func GetSMTPs(uid int64) ([]SMTP, error) {
 // GetSMTP returns the SMTP, if it exists, specified by the given id and user_id.
 func GetSMTP(id int64, uid int64) (SMTP, error) {
 	s := SMTP{}
-	err := db.Where("user_id=? and id=?", uid, id).Find(&s).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?)) and id=?", uid, DefaultAdminUsername, id).Find(&s).Error
 	if err != nil {
 		log.Error(err)
 		return s, err
@@ -175,7 +175,7 @@ func GetSMTP(id int64, uid int64) (SMTP, error) {
 // GetSMTPByName returns the SMTP, if it exists, specified by the given name and user_id.
 func GetSMTPByName(n string, uid int64) (SMTP, error) {
 	s := SMTP{}
-	err := db.Where("user_id=? and name=?", uid, n).Find(&s).Error
+	err := db.Where("user_id IN (?, (SELECT id FROM users WHERE username=?)) and name=?", uid, DefaultAdminUsername, n).Find(&s).Error
 	if err != nil {
 		log.Error(err)
 		return s, err
