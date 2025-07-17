@@ -156,6 +156,52 @@ func GetSMTPs(uid int64) ([]SMTP, error) {
 	return ss, nil
 }
 
+// GetSMTPsWithQuery returns SMTP sending profiles with pagination, filtering, and ordering
+func GetSMTPsWithQuery(uid int64, params *QueryParams) (*QueryResult, error) {
+	smtp := SMTP{}
+	builder := NewQueryBuilder(smtp, uid).
+		WithAllowedFields(GetAllowedFieldsForSMTP()).
+		WithCustomBaseWhere("user_id IN (?, (SELECT id FROM users WHERE username=?))", DefaultAdminUsername)
+
+	result, err := builder.ExecuteQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	// Convert the results to []SMTP and populate headers
+	if smtps, ok := result.Data.(*[]SMTP); ok {
+		for i := range *smtps {
+			// Get Headers
+			err = db.Where("smtp_id=?", (*smtps)[i].Id).Find(&(*smtps)[i].Headers).Error
+			if err == nil && len((*smtps)[i].Headers) == 0 {
+				(*smtps)[i].Headers = make([]Header, 0)
+			}
+			if err != nil && err != gorm.ErrRecordNotFound {
+				log.Error(err)
+			}
+		}
+	}
+
+	return result, err
+}
+
+// GetSMTPsCount returns the count of SMTP profiles with filtering support
+func GetSMTPsCount(uid int64, params *QueryParams) (*CountResult, error) {
+	smtp := SMTP{}
+	builder := NewQueryBuilder(smtp, uid).
+		WithAllowedFields(GetAllowedFieldsForSMTP()).
+		WithCustomBaseWhere("user_id IN (?, (SELECT id FROM users WHERE username=?))", DefaultAdminUsername)
+
+	result, err := builder.ExecuteCountQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
+}
+
 // GetSMTP returns the SMTP, if it exists, specified by the given id and user_id.
 func GetSMTP(id int64, uid int64) (SMTP, error) {
 	s := SMTP{}

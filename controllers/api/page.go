@@ -17,11 +17,40 @@ import (
 func (as *Server) Pages(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == "GET":
-		ps, err := models.GetPages(ctx.Get(r, "user_id").(int64))
-		if err != nil {
-			log.Error(err)
+		// Parse query parameters
+		params := ParseQueryParams(r)
+
+		// Get user ID from context
+		userID := ctx.Get(r, "user_id")
+		if userID == nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid user context"}, http.StatusBadRequest)
+			return
 		}
-		JSONResponse(w, ps, http.StatusOK)
+		uid := userID.(int64)
+
+		// Check if using new query system
+		if params.HasPaging || len(params.Filters) > 0 || params.OrderBy != "id" || params.OrderDir != "desc" {
+			// Use new query system
+			modelParams := models.ConvertAPIQueryParams(params)
+			result, err := models.GetPagesWithQuery(uid, modelParams)
+			if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+
+			// Extract data and metadata
+			data := ExtractDataFromQueryResult(result)
+			meta := ConvertQueryResultToMeta(result)
+			JSONResponseWithPagination(w, data, meta, http.StatusOK)
+		} else {
+			// Legacy support - use existing logic
+			ps, err := models.GetPages(uid)
+			if err != nil {
+				log.Error(err)
+			}
+			JSONResponse(w, ps, http.StatusOK)
+		}
 	//POST: Create a new page and return it as JSON
 	case r.Method == "POST":
 		p := models.Page{}

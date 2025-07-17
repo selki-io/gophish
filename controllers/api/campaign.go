@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
 	ctx "github.com/gophish/gophish/context"
 	log "github.com/gophish/gophish/logger"
@@ -18,25 +17,58 @@ import (
 func (as *Server) Campaigns(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == "GET":
-		// Parse campaign IDs from query parameter
-		var campaignIds []int64
-		if ids := r.URL.Query().Get("id__in"); ids != "" {
-			for _, idStr := range strings.Split(ids, ",") {
-				if id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 64); err == nil {
-					campaignIds = append(campaignIds, id)
-				}
-			}
-		}
-		log.Debugf("campaignIds: %v", campaignIds)
-		
-		// Get campaigns with optional ID filter
-		cs, err := models.GetCampaigns(ctx.Get(r, "user_id").(int64), campaignIds...)
-		if err != nil {
-			log.Error(err)
-			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+		// Parse query parameters
+		params := ParseQueryParams(r)
+		log.Debugf("Query params: %v", params)
+
+		// Get user ID from context
+		userID := ctx.Get(r, "user_id")
+		if userID == nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid user context"}, http.StatusBadRequest)
 			return
 		}
-		JSONResponse(w, cs, http.StatusOK)
+		uid := userID.(int64)
+
+		// Check if using new query system or legacy id__in
+		if params.HasPaging || len(params.Filters) > 1 || (len(params.Filters) == 1 && !params.HasFilter("id")) {
+			// Use new query system
+			modelParams := models.ConvertAPIQueryParams(params)
+			result, err := models.GetCampaignsWithQuery(uid, modelParams)
+			if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+
+			// Extract data and metadata
+			data := ExtractDataFromQueryResult(result)
+			meta := ConvertQueryResultToMeta(result)
+			JSONResponseWithPagination(w, data, meta, http.StatusOK)
+		} else {
+			// Legacy support - use existing logic for id__in
+			var campaignIds []int64
+			if params.HasFilter("id") {
+				if filter, exists := params.GetFilterValue("id"); exists && filter.Operator == "in" {
+					if ids, ok := filter.Value.([]interface{}); ok {
+						for _, id := range ids {
+							if idInt, ok := id.(int64); ok {
+								campaignIds = append(campaignIds, idInt)
+							}
+						}
+					}
+				}
+			}
+			log.Debugf("campaignIds: %v", campaignIds)
+
+			// Get campaigns with optional ID filter
+			cs, err := models.GetCampaigns(uid, campaignIds...)
+			if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+			JSONResponse(w, cs, http.StatusOK)
+		}
 	//POST: Create a new campaign and return it as JSON
 	case r.Method == "POST":
 		c := models.Campaign{}

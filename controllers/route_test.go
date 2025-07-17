@@ -58,7 +58,7 @@ func TestLoginCSRF(t *testing.T) {
 	defer tearDown(t, ctx)
 	resp, err := http.PostForm(fmt.Sprintf("%s/login", ctx.adminServer.URL),
 		url.Values{
-			"username": {"admin"},
+			"username": {"System (Global)"},
 			"password": {"gophish"},
 		})
 
@@ -76,7 +76,7 @@ func TestLoginCSRF(t *testing.T) {
 func TestInvalidCredentials(t *testing.T) {
 	ctx := setupTest(t)
 	defer tearDown(t, ctx)
-	resp := attemptLogin(t, ctx, nil, "admin", "bogus", "")
+	resp := attemptLogin(t, ctx, nil, "System (Global)", "bogus", "")
 	got := resp.StatusCode
 	expected := http.StatusUnauthorized
 	if got != expected {
@@ -87,7 +87,7 @@ func TestInvalidCredentials(t *testing.T) {
 func TestSuccessfulLogin(t *testing.T) {
 	ctx := setupTest(t)
 	defer tearDown(t, ctx)
-	resp := attemptLogin(t, ctx, nil, "admin", "gophish", "")
+	resp := attemptLogin(t, ctx, nil, "System (Global)", "gophish", "")
 	got := resp.StatusCode
 	expected := http.StatusOK
 	if got != expected {
@@ -103,7 +103,7 @@ func TestSuccessfulRedirect(t *testing.T) {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		}}
-	resp := attemptLogin(t, ctx, client, "admin", "gophish", fmt.Sprintf("?next=%s", next))
+	resp := attemptLogin(t, ctx, client, "System (Global)", "gophish", fmt.Sprintf("?next=%s", next))
 	got := resp.StatusCode
 	expected := http.StatusFound
 	if got != expected {

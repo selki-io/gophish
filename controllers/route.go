@@ -173,12 +173,12 @@ func (as *AdminServer) registerRoutes() {
 }
 
 type templateParams struct {
-	Title              string
-	Flashes            []interface{}
-	User               models.User
-	Token              string
-	Version            string
-	ModifySystem       bool
+	Title                string
+	Flashes              []interface{}
+	User                 models.User
+	Token                string
+	Version              string
+	ModifySystem         bool
 	DefaultAdminUsername string
 }
 

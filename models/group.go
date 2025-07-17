@@ -109,12 +109,12 @@ func (g *Group) Validate() error {
 func GetGroups(uid int64, groupIds ...int64) ([]Group, error) {
 	gs := []Group{}
 	query := db.Where("user_id=?", uid)
-	
+
 	// If group IDs are provided, filter by them
 	if len(groupIds) > 0 {
 		query = query.Where("id IN (?)", groupIds)
 	}
-	
+
 	err := query.Find(&gs).Error
 	if err != nil {
 		log.Error(err)
@@ -368,4 +368,45 @@ func GetTargets(gid int64) ([]Target, error) {
 	ts := []Target{}
 	err := db.Table("targets").Select("targets.id, targets.email, targets.first_name, targets.last_name, targets.position").Joins("left join group_targets gt ON targets.id = gt.target_id").Where("gt.group_id=?", gid).Scan(&ts).Error
 	return ts, err
+}
+
+// GetGroupsWithQuery returns groups with pagination, filtering, and ordering
+func GetGroupsWithQuery(uid int64, params *QueryParams) (*QueryResult, error) {
+	group := Group{}
+	builder := NewQueryBuilder(group, uid).
+		WithAllowedFields(GetAllowedFieldsForGroup())
+
+	result, err := builder.ExecuteQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	// Convert the results to []Group and populate targets
+	if groups, ok := result.Data.(*[]Group); ok {
+		for i := range *groups {
+			// Get Targets
+			(*groups)[i].Targets, err = GetTargets((*groups)[i].Id)
+			if err != nil {
+				log.Error(err)
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// GetGroupsCount returns the count of groups with filtering support
+func GetGroupsCount(uid int64, params *QueryParams) (*CountResult, error) {
+	group := Group{}
+	builder := NewQueryBuilder(group, uid).
+		WithAllowedFields(GetAllowedFieldsForGroup())
+
+	result, err := builder.ExecuteCountQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
 }

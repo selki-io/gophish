@@ -100,7 +100,8 @@ func GetEmailRequestByResultId(id string) (EmailRequest, error) {
 // Generate fills in the details of a gomail.Message with the contents
 // from the SendTestEmailRequest.
 func (s *EmailRequest) Generate(msg *gomail.Message) error {
-	f, err := mail.ParseAddress(s.getFromAddress())
+	// Always use SMTP FromAddress for From header
+	f, err := mail.ParseAddress(s.SMTP.FromAddress)
 	if err != nil {
 		return err
 	}

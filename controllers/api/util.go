@@ -95,18 +95,13 @@ func (as *Server) SendTestEmail(w http.ResponseWriter, r *http.Request) {
 		s.SMTP = smtp
 	}
 
-	_, err = mail.ParseAddress(s.Template.EnvelopeSender)
+	// Always use SMTP FromAddress for envelope sender
+	_, err = mail.ParseAddress(s.SMTP.FromAddress)
 	if err != nil {
-		_, err = mail.ParseAddress(s.SMTP.FromAddress)
-		if err != nil {
-			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
-			return
-		} else {
-			s.FromAddress = s.SMTP.FromAddress
-		}
-	} else {
-		s.FromAddress = s.Template.EnvelopeSender
+		JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+		return
 	}
+	s.FromAddress = s.SMTP.FromAddress
 
 	// Validate the given request
 	if err = s.Validate(); err != nil {

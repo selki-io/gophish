@@ -1,0 +1,51 @@
+steps:
+  # Step 1: Go format check
+  - name: "golang:1.20"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        diff -u <(echo -n) <(gofmt -d .)
+    id: GoFormat
+
+  # Step 2: Go build backend
+  - name: "golang:1.20"
+    env:
+      - "CGO_ENABLED=1"
+      - "GOOS=linux"
+      - "GOARCH=amd64"
+    args: ["go", "build", "-v", "."]
+    wait_for: ["GoFormat"]
+    id: GoBuild
+
+  # Step 3: Go test
+  - name: "golang:1.20"
+    args: ["go", "test", "./..."]
+    wait_for: ["GoBuild"]
+    id: GoTest
+
+  # Step 4: Build frontend assets
+  - name: "node:18"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        npm install --only=dev &&
+        npx gulp
+    wait_for: ["GoTest"]
+    id: Frontend
+
+  # Step 5: Create and upload artifact
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        ISO_DATE=$(date +%Y-%m-%dT%H-%M-%S)
+        tar -czf gophish-$${ISO_DATE}.tar.gz --exclude='.git' --exclude='node_modules' --exclude='.terra' --exclude='.terra_backup' .
+        gsutil cp gophish-$${ISO_DATE}.tar.gz gs://${_ENV}-selki-terraform/gophish/artifacts/
+    wait_for: ["Frontend"]
+    id: UploadArtifact
+
+options:
+  logging: CLOUD_LOGGING_ONLY

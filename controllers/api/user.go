@@ -68,12 +68,34 @@ func (ur *userRequest) Validate(existingUser *models.User) error {
 func (as *Server) Users(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == "GET":
-		us, err := models.GetUsers()
-		if err != nil {
-			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
-			return
+		// Parse query parameters
+		params := ParseQueryParams(r)
+		log.Debugf("Query params: %v", params)
+
+		// Check if using new query system
+		if params.HasPaging || len(params.Filters) > 0 || params.OrderBy != "id" || params.OrderDir != "desc" {
+			// Use new query system
+			modelParams := models.ConvertAPIQueryParams(params)
+			result, err := models.GetUsersWithQuery(modelParams)
+			if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+
+			// Extract data and metadata
+			data := ExtractDataFromQueryResult(result)
+			meta := ConvertQueryResultToMeta(result)
+			JSONResponseWithPagination(w, data, meta, http.StatusOK)
+		} else {
+			// Legacy support - use existing logic
+			us, err := models.GetUsers()
+			if err != nil {
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+			JSONResponse(w, us, http.StatusOK)
 		}
-		JSONResponse(w, us, http.StatusOK)
 		return
 	case r.Method == "POST":
 		ur := &userRequest{}

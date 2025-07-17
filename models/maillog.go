@@ -182,12 +182,9 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 		c = &campaign
 	}
 
-	f, err := mail.ParseAddress(c.Template.EnvelopeSender)
+	f, err := mail.ParseAddress(c.SMTP.FromAddress)
 	if err != nil {
-		f, err = mail.ParseAddress(c.SMTP.FromAddress)
-		if err != nil {
-			return err
-		}
+		return err
 	}
 	msg.SetAddressHeader("From", f.Address, f.Name)
 

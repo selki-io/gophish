@@ -99,6 +99,38 @@ func GetPages(uid int64) ([]Page, error) {
 	return ps, err
 }
 
+// GetPagesWithQuery returns pages with pagination, filtering, and ordering
+func GetPagesWithQuery(uid int64, params *QueryParams) (*QueryResult, error) {
+	page := Page{}
+	builder := NewQueryBuilder(page, uid).
+		WithAllowedFields(GetAllowedFieldsForPage()).
+		WithCustomBaseWhere("user_id IN (?, (SELECT id FROM users WHERE username=?))", DefaultAdminUsername)
+
+	result, err := builder.ExecuteQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
+}
+
+// GetPagesCount returns the count of pages with filtering support
+func GetPagesCount(uid int64, params *QueryParams) (*CountResult, error) {
+	page := Page{}
+	builder := NewQueryBuilder(page, uid).
+		WithAllowedFields(GetAllowedFieldsForPage()).
+		WithCustomBaseWhere("user_id IN (?, (SELECT id FROM users WHERE username=?))", DefaultAdminUsername)
+
+	result, err := builder.ExecuteCountQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
+}
+
 // GetPage returns the page, if it exists, specified by the given id and user_id.
 func GetPage(id int64, uid int64) (Page, error) {
 	p := Page{}

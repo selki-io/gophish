@@ -42,17 +42,23 @@ func setupTest(t *testing.T) *testContext {
 	ctx.adminServer.Start()
 	// Get the API key to use for these tests
 	u, err := models.GetUser(1)
-	// Reset the temporary password for the admin user to a value we control
-	hash, err := auth.GeneratePasswordHash("gophish")
-	u.Hash = hash
-	models.PutUser(&u)
 	if err != nil {
 		t.Fatalf("error getting first user from database: %v", err)
+	}
+	// Reset the temporary password for the admin user to a value we control
+	hash, err := auth.GeneratePasswordHash("gophish")
+	if err != nil {
+		t.Fatalf("error generating password hash: %v", err)
+	}
+	u.Hash = hash
+	err = models.PutUser(&u)
+	if err != nil {
+		t.Fatalf("error updating user password: %v", err)
 	}
 
 	// Create a second user to test account locked status
 	u2 := models.User{Username: "houdini", Hash: hash, AccountLocked: true}
-	models.PutUser(&u2)
+	err = models.PutUser(&u2)
 	if err != nil {
 		t.Fatalf("error creating new user: %v", err)
 	}

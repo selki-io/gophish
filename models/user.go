@@ -160,3 +160,35 @@ func DeleteUser(id int64) error {
 	err = db.Where("id=?", id).Delete(&User{}).Error
 	return err
 }
+
+// GetUsersWithQuery returns users with pagination, filtering, and ordering
+func GetUsersWithQuery(params *QueryParams) (*QueryResult, error) {
+	user := User{}
+	builder := NewQueryBuilder(user, 0).
+		WithCustomBaseWhere(""). // No user_id restriction for admin operations
+		WithAllowedFields(GetAllowedFieldsForUser())
+
+	result, err := builder.ExecuteQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetUsersCount returns the count of users with filtering support
+func GetUsersCount(uid int64, params *QueryParams) (*CountResult, error) {
+	user := User{}
+	builder := NewQueryBuilder(user, 0).
+		WithCustomBaseWhere(""). // No user_id restriction for admin operations
+		WithAllowedFields(GetAllowedFieldsForUser())
+
+	result, err := builder.ExecuteCountQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
+}

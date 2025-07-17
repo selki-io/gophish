@@ -244,7 +244,7 @@ func (s *ModelsSuite) TestMailLogGetSmtpFrom(ch *check.C) {
 
 	got, err := email.NewEmailFromReader(msgBuff)
 	ch.Assert(err, check.Equals, nil)
-	ch.Assert(got.From, check.Equals, "spoofing@example.com")
+	ch.Assert(got.From, check.Equals, "test@test.com")
 }
 
 func (s *ModelsSuite) TestMailLogGenerate(ch *check.C) {

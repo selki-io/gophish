@@ -305,12 +305,12 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 func GetCampaigns(uid int64, campaignIds ...int64) ([]Campaign, error) {
 	cs := []Campaign{}
 	query := db.Where("user_id = ?", uid)
-	
+
 	// If campaign IDs are provided, filter by them
 	if len(campaignIds) > 0 {
 		query = query.Where("id IN (?)", campaignIds)
 	}
-	
+
 	err := query.Find(&cs).Error
 	if err != nil {
 		log.Error(err)
@@ -675,4 +675,44 @@ func CompleteCampaign(id int64, uid int64) error {
 		log.Error(err)
 	}
 	return err
+}
+
+// GetCampaignsWithQuery returns campaigns with pagination, filtering, and ordering
+func GetCampaignsWithQuery(uid int64, params *QueryParams) (*QueryResult, error) {
+	campaign := Campaign{}
+	builder := NewQueryBuilder(campaign, uid).
+		WithAllowedFields(GetAllowedFieldsForCampaign())
+
+	result, err := builder.ExecuteQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	// Convert the results to []Campaign and populate details
+	if campaigns, ok := result.Data.(*[]Campaign); ok {
+		for i := range *campaigns {
+			err = (*campaigns)[i].getDetails()
+			if err != nil {
+				log.Error(err)
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// GetCampaignsCount returns the count of campaigns with filtering support
+func GetCampaignsCount(uid int64, params *QueryParams) (*CountResult, error) {
+	campaign := Campaign{}
+	builder := NewQueryBuilder(campaign, uid).
+		WithAllowedFields(GetAllowedFieldsForCampaign())
+
+	result, err := builder.ExecuteCountQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
 }

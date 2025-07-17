@@ -1,0 +1,117 @@
+steps:
+  # Step 0: Validate terraform
+  - name: "hashicorp/terraform:1.5.5"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        cd .terra &&
+        terraform init -backend-config="bucket=${_ENV}-selki-terraform" -reconfigure &&
+        terraform fmt -check -recursive &&
+        terraform validate
+    id: Terraform
+
+  # Step 1: Go format check
+  - name: "golang:1.20"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        diff -u <(echo -n) <(gofmt -d .)
+    wait_for: ["Terraform"]
+    id: GoFormat
+
+  # Step 2: Go build backend
+  - name: "golang:1.20"
+    env:
+      - "CGO_ENABLED=1"
+      - "GOOS=linux"
+      - "GOARCH=amd64"
+    args: ["go", "build", "-v", "."]
+    wait_for: ["GoFormat"]
+    id: GoBuild
+
+  # Step 3: Go test
+  - name: "golang:1.20"
+    args: ["go", "test", "./..."]
+    wait_for: ["GoBuild"]
+    id: GoTest
+
+  # Step 4: Build frontend assets
+  - name: "node:18"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        npm install --only=dev &&
+        npx gulp
+    wait_for: ["GoTest"]
+    id: Frontend
+
+  # Step 5: Add SSH tag to VM for deployment access
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:alpine"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        # Add ssh tag to enable SSH access during deployment
+        gcloud compute instances add-tags ${_ENV}-gophish-host \
+          --zone=${_ZONE} \
+          --tags=ssh
+    wait_for: ["Frontend"]
+    id: AddSSHTag
+
+  # Step 6: Deploy to VM and run setup script
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:alpine"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        # Create a deployment package with required files
+        mkdir -p deploy_package
+        cp VERSION deploy_package/
+        cp config.json deploy_package/
+        cp gophish deploy_package/
+        cp -r db/ deploy_package/
+        cp -r static/ deploy_package/
+        cp -r templates/ deploy_package/
+        cp .terra/setup-gophish.sh deploy_package/
+
+        # Create tarball for efficient transfer
+        tar czf gophish-deploy.tar.gz deploy_package/
+
+        # Copy the deployment package to the VM
+        gcloud compute scp --zone=${_ZONE} \
+          gophish-deploy.tar.gz \
+          ${_ENV}-gophish-host:/tmp/
+
+        # Extract and deploy on the VM
+        gcloud compute ssh --zone=${_ZONE} ${_ENV}-gophish-host \
+          --command="cd /tmp && \
+                     tar xzf gophish-deploy.tar.gz && \
+                     sudo mkdir -p /opt/gophish && \
+                     sudo cp -r deploy_package/* /opt/gophish/ && \
+                     sudo chmod +x /opt/gophish/gophish && \
+                     sudo chmod +x /opt/gophish/setup-gophish.sh && \
+                     cd /opt/gophish && \
+                     sudo ./setup-gophish.sh && \
+                     sudo chown -R gophish:gophish /opt/gophish && \
+                     sudo systemctl restart gophish"
+    wait_for: ["AddSSHTag"]
+    id: DeployToVM
+
+  # Step 7: Remove SSH tag from VM for security
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:alpine"
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        # Remove ssh tag to disable SSH access after deployment
+        gcloud compute instances remove-tags ${_ENV}-gophish-host \
+          --zone=${_ZONE} \
+          --tags=ssh
+    wait_for: ["DeployToVM"]
+    id: RemoveSSHTag
+
+options:
+  logging: CLOUD_LOGGING_ONLY

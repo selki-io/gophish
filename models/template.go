@@ -9,6 +9,26 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// Language represents the supported template languages
+type Language string
+
+// Language enum constants
+const (
+	LangEN Language = "en"
+	LangES Language = "es"
+	LangPT Language = "pt"
+)
+
+// IsValid checks if the language is a valid enum value
+func (l Language) IsValid() bool {
+	switch l {
+	case LangEN, LangES, LangPT, "":
+		return true
+	default:
+		return false
+	}
+}
+
 // Template models hold the attributes for an email template to be sent to targets
 type Template struct {
 	Id             int64        `json:"id" gorm:"column:id; primary_key:yes"`
@@ -20,6 +40,7 @@ type Template struct {
 	HTML           string       `json:"html" gorm:"column:html"`
 	ModifiedDate   time.Time    `json:"modified_date"`
 	Attachments    []Attachment `json:"attachments"`
+	Lang           Language     `json:"lang" gorm:"column:lang"`
 }
 
 // ErrTemplateNameNotSpecified is thrown when a template name is not specified
@@ -27,6 +48,9 @@ var ErrTemplateNameNotSpecified = errors.New("Template name not specified")
 
 // ErrTemplateMissingParameter is thrown when a needed parameter is not provided
 var ErrTemplateMissingParameter = errors.New("Need to specify at least plaintext or HTML content")
+
+// ErrTemplateInvalidLanguage is thrown when an invalid language code is provided
+var ErrTemplateInvalidLanguage = errors.New("Invalid language code. Must be one of: en, es, pt")
 
 // Validate checks the given template to make sure values are appropriate and complete
 func (t *Template) Validate() error {
@@ -41,6 +65,12 @@ func (t *Template) Validate() error {
 			return err
 		}
 	}
+
+	// Validate language code if provided
+	if !t.Lang.IsValid() {
+		return ErrTemplateInvalidLanguage
+	}
+
 	if err := ValidateTemplate(t.HTML); err != nil {
 		return err
 	}
@@ -194,4 +224,48 @@ func DeleteTemplate(id int64, uid int64) error {
 		return err
 	}
 	return nil
+}
+
+// GetTemplatesWithQuery returns templates with pagination, filtering, and ordering
+func GetTemplatesWithQuery(uid int64, params *QueryParams) (*QueryResult, error) {
+	template := Template{}
+	builder := NewQueryBuilder(template, uid).
+		WithAllowedFields(GetAllowedFieldsForTemplate())
+
+	result, err := builder.ExecuteQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	// Convert the results to []Template and populate attachments
+	if templates, ok := result.Data.(*[]Template); ok {
+		for i := range *templates {
+			// Get Attachments
+			err = db.Where("template_id=?", (*templates)[i].Id).Find(&(*templates)[i].Attachments).Error
+			if err == nil && len((*templates)[i].Attachments) == 0 {
+				(*templates)[i].Attachments = make([]Attachment, 0)
+			}
+			if err != nil && err != gorm.ErrRecordNotFound {
+				log.Error(err)
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// GetTemplatesCount returns the count of templates with filtering support
+func GetTemplatesCount(uid int64, params *QueryParams) (*CountResult, error) {
+	template := Template{}
+	builder := NewQueryBuilder(template, uid).
+		WithAllowedFields(GetAllowedFieldsForTemplate())
+
+	result, err := builder.ExecuteCountQuery(params)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return result, err
 }

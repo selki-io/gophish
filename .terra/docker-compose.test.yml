@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  gophish-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: gophish-test
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    ports:
+      - "3333:3333"
+      - "8443:443"
+      - "8080:80"
+    command: /lib/systemd/systemd

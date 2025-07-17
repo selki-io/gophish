@@ -17,11 +17,41 @@ import (
 func (as *Server) Templates(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == "GET":
-		ts, err := models.GetTemplates(ctx.Get(r, "user_id").(int64))
-		if err != nil {
-			log.Error(err)
+		// Parse query parameters
+		params := ParseQueryParams(r)
+		log.Debugf("Query params: %v", params)
+
+		// Get user ID from context
+		userID := ctx.Get(r, "user_id")
+		if userID == nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid user context"}, http.StatusBadRequest)
+			return
 		}
-		JSONResponse(w, ts, http.StatusOK)
+		uid := userID.(int64)
+
+		// Check if using new query system
+		if params.HasPaging || len(params.Filters) > 0 || params.OrderBy != "id" || params.OrderDir != "desc" {
+			// Use new query system
+			modelParams := models.ConvertAPIQueryParams(params)
+			result, err := models.GetTemplatesWithQuery(uid, modelParams)
+			if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+
+			// Extract data and metadata
+			data := ExtractDataFromQueryResult(result)
+			meta := ConvertQueryResultToMeta(result)
+			JSONResponseWithPagination(w, data, meta, http.StatusOK)
+		} else {
+			// Legacy support - use existing logic
+			ts, err := models.GetTemplates(uid)
+			if err != nil {
+				log.Error(err)
+			}
+			JSONResponse(w, ts, http.StatusOK)
+		}
 	//POST: Create a new template and return it as JSON
 	case r.Method == "POST":
 		t := models.Template{}
@@ -44,6 +74,10 @@ func (as *Server) Templates(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err == models.ErrTemplateMissingParameter {
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		if err == models.ErrTemplateInvalidLanguage {
 			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
 			return
 		}
