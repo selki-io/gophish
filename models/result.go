@@ -47,7 +47,7 @@ func (r *Result) createEvent(status string, details interface{}) (*Event, error)
 		}
 		e.Details = string(dj)
 	}
-	AddEvent(e, r.CampaignId)
+	AddEvent(e, r.CampaignId, r.UserId)
 	return e, nil
 }
 

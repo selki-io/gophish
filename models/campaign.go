@@ -76,6 +76,7 @@ type CampaignStats struct {
 type Event struct {
 	Id         int64     `json:"-"`
 	CampaignId int64     `json:"campaign_id"`
+	UserId     int64     `json:"user_id" gorm:"-"`
 	Email      string    `json:"email"`
 	Time       time.Time `json:"time"`
 	Message    string    `json:"message"`
@@ -155,8 +156,9 @@ func (c *Campaign) UpdateStatus(s string) error {
 }
 
 // AddEvent creates a new campaign event in the database
-func AddEvent(e *Event, campaignID int64) error {
+func AddEvent(e *Event, campaignID int64, userID int64) error {
 	e.CampaignId = campaignID
+	e.UserId = userID
 	e.Time = time.Now().UTC()
 
 	whs, err := GetActiveWebhooks()
@@ -540,7 +542,7 @@ func PostCampaign(c *Campaign, uid int64) error {
 		log.Error(err)
 		return err
 	}
-	err = AddEvent(&Event{Message: "Campaign Created"}, c.Id)
+	err = AddEvent(&Event{Message: "Campaign Created"}, c.Id, c.UserId)
 	if err != nil {
 		log.Error(err)
 	}
