@@ -41,6 +41,7 @@ type Template struct {
 	ModifiedDate   time.Time    `json:"modified_date"`
 	Attachments    []Attachment `json:"attachments"`
 	Lang           Language     `json:"lang" gorm:"column:lang"`
+	IsOwner        bool         `json:"is_owner" gorm:"-"` // Indicates if current user owns this template
 }
 
 // ErrTemplateNameNotSpecified is thrown when a template name is not specified
@@ -95,6 +96,8 @@ func GetTemplates(uid int64) ([]Template, error) {
 		return ts, err
 	}
 	for i := range ts {
+		// Set ownership flag
+		ts[i].IsOwner = ts[i].UserId == uid
 		// Get Attachments
 		err = db.Where("template_id=?", ts[i].Id).Find(&ts[i].Attachments).Error
 		if err == nil && len(ts[i].Attachments) == 0 {
@@ -116,6 +119,9 @@ func GetTemplate(id int64, uid int64) (Template, error) {
 		log.Error(err)
 		return t, err
 	}
+
+	// Set ownership flag
+	t.IsOwner = t.UserId == uid
 
 	// Get Attachments
 	err = db.Where("template_id=?", t.Id).Find(&t.Attachments).Error
@@ -230,7 +236,8 @@ func DeleteTemplate(id int64, uid int64) error {
 func GetTemplatesWithQuery(uid int64, params *QueryParams) (*QueryResult, error) {
 	template := Template{}
 	builder := NewQueryBuilder(template, uid).
-		WithAllowedFields(GetAllowedFieldsForTemplate())
+		WithAllowedFields(GetAllowedFieldsForTemplate()).
+		WithCustomBaseWhere("user_id IN (?, (SELECT id FROM users WHERE username=?))", DefaultAdminUsername)
 
 	result, err := builder.ExecuteQuery(params)
 	if err != nil {
@@ -241,6 +248,8 @@ func GetTemplatesWithQuery(uid int64, params *QueryParams) (*QueryResult, error)
 	// Convert the results to []Template and populate attachments
 	if templates, ok := result.Data.(*[]Template); ok {
 		for i := range *templates {
+			// Set ownership flag
+			(*templates)[i].IsOwner = (*templates)[i].UserId == uid
 			// Get Attachments
 			err = db.Where("template_id=?", (*templates)[i].Id).Find(&(*templates)[i].Attachments).Error
 			if err == nil && len((*templates)[i].Attachments) == 0 {
@@ -259,7 +268,8 @@ func GetTemplatesWithQuery(uid int64, params *QueryParams) (*QueryResult, error)
 func GetTemplatesCount(uid int64, params *QueryParams) (*CountResult, error) {
 	template := Template{}
 	builder := NewQueryBuilder(template, uid).
-		WithAllowedFields(GetAllowedFieldsForTemplate())
+		WithAllowedFields(GetAllowedFieldsForTemplate()).
+		WithCustomBaseWhere("user_id IN (?, (SELECT id FROM users WHERE username=?))", DefaultAdminUsername)
 
 	result, err := builder.ExecuteCountQuery(params)
 	if err != nil {

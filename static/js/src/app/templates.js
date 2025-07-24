@@ -327,19 +327,34 @@ function load() {
                 templateTable.clear()
                 templateRows = []
                 $.each(templates, function (i, template) {
+                    var actions = "<div class='pull-right'>";
+                    
+                    // Only show edit button if user owns the template
+                    if (template.is_owner) {
+                        actions += "<span data-toggle='modal' data-backdrop='static' data-target='#modal'><button class='btn btn-primary' data-toggle='tooltip' data-placement='left' title='Edit Template' onclick='edit(" + i + ")'>\
+                        <i class='fa fa-pencil'></i>\
+                        </button></span>";
+                    }
+                    
+                    // Copy button is always available
+                    actions += "<span data-toggle='modal' data-target='#modal'><button class='btn btn-primary' data-toggle='tooltip' data-placement='left' title='Copy Template' onclick='copy(" + i + ")'>\
+                    <i class='fa fa-copy'></i>\
+                    </button></span>";
+                    
+                    // Only show delete button if user owns the template
+                    if (template.is_owner) {
+                        actions += "<button class='btn btn-danger' data-toggle='tooltip' data-placement='left' title='Delete Template' onclick='deleteTemplate(" + i + ")'>\
+                        <i class='fa fa-trash-o'></i>\
+                        </button>";
+                    }
+                    
+                    actions += "</div>";
+                    
                     templateRows.push([
                         escapeHtml(template.name),
                         template.lang ? template.lang.toUpperCase() : '',
                         moment(template.modified_date).format('MMMM Do YYYY, h:mm:ss a'),
-                        "<div class='pull-right'><span data-toggle='modal' data-backdrop='static' data-target='#modal'><button class='btn btn-primary' data-toggle='tooltip' data-placement='left' title='Edit Template' onclick='edit(" + i + ")'>\
-                    <i class='fa fa-pencil'></i>\
-                    </button></span>\
-		    <span data-toggle='modal' data-target='#modal'><button class='btn btn-primary' data-toggle='tooltip' data-placement='left' title='Copy Template' onclick='copy(" + i + ")'>\
-                    <i class='fa fa-copy'></i>\
-                    </button></span>\
-                    <button class='btn btn-danger' data-toggle='tooltip' data-placement='left' title='Delete Template' onclick='deleteTemplate(" + i + ")'>\
-                    <i class='fa fa-trash-o'></i>\
-                    </button></div>"
+                        actions
                     ])
                 })
                 templateTable.rows.add(templateRows).draw()
